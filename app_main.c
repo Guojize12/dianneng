@@ -66,11 +66,13 @@ void APP_MAIN_Init(void)
 //   BSP_TIMER_Init(&g_timer_pwm_print, APP_MAIN_Callback_PrintPwmFreq, 500, 500);
 //    BSP_TIMER_Start(&g_timer_pwm_print);
     APP_VERSION_Print(); 
+    
+     energy_adc_start();
 }
 /**
  * @brief  主循环
         // 启动电能监测ADC采样
-        energy_adc_start();
+        
  * @param  None.
  * @retval None.
  */
