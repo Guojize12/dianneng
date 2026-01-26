@@ -1,13 +1,28 @@
+
 #include "adc.h"
 #include <math.h>
 #include "app_energy.h"
 #include <string.h>
 #include "user_log.h"
 
-#define ADC_CHANNELS   3
-#define POINTS_PER_CH  200
 
-#define DMA_BUF_SIZE   (ADC_CHANNELS * POINTS_PER_CH)
+#define ADC_CHANNELS      3
+#define POINTS_PER_CH     1000
+#define DMA_BUF_SIZE      (ADC_CHANNELS * POINTS_PER_CH)
+
+// 12位ADC最大值
+#define ADC_MAX_VALUE     4095U
+// 默认分析电压
+#define DEFAULT_ANALYZE_VOLTAGE  220.0f
+// 默认分析k系数
+#define DEFAULT_ANALYZE_K        1.0f
+// 默认分析b系数
+#define DEFAULT_ANALYZE_B        0.0f
+// 削顶判据：超过该点数才判定削顶
+#define CLIP_THRESHOLD  2  
+// RMS底值校准标志和结果（每通道独立）
+volatile uint8_t calib_rms_base_flag[ADC_CHANNELS] = {0};
+float g_rms_base[ADC_CHANNELS] = {0};
 
 /* ADC偏置（每通道） */
 static float g_adc_offset[ADC_CHANNELS] = {0};
@@ -36,13 +51,20 @@ void energy_set_params(uint16_t length, uint8_t channel)
     LOG("[Config] set: length=%d, channel=%d\r\n", g_rms_length, g_rms_channel);
 }
 
-/* 削顶检测 */
+
+
+// 可选：如需更严格可用比例法
+// #define CLIP_THRESHOLD  ((length) / 100)  // 1%
+
 uint8_t energy_clip_detect(const uint16_t *data, uint16_t length)
 {
+    uint16_t clip_count = 0;
     for (uint16_t i = 0; i < length; i++) {
-        if (data[i] == 0 || data[i] >= 4095) return 1;
+        if (data[i] == 0 || data[i] >= ADC_MAX_VALUE) {
+            clip_count++;
+        }
     }
-    return 0;
+    return (clip_count >= CLIP_THRESHOLD) ? 1 : 0;
 }
 
 /* 有效值计算（去直流分量） */
@@ -170,7 +192,39 @@ const energy_result_t* energy_get_result(uint8_t ch)
 /* 主循环钩子：采满即分析 */
 void energy_Handle(void)
 {
+    uint8_t any_calib = 0;
+    for (uint8_t ch = 0; ch < g_rms_channel; ch++) {
+        if (calib_rms_base_flag[ch]) {
+            uint16_t buf[POINTS_PER_CH];
+            for (uint16_t i = 0; i < g_rms_length; i++) {
+                buf[i] = rms_data[i][ch];
+            }
+            g_rms_base[ch] = energy_calc_rms_base(buf, g_rms_length);
+            LOG("[Calib] CH%d RMS base=%.2f\r\n", ch, g_rms_base[ch]);
+            calib_rms_base_flag[ch] = 0;
+            any_calib = 1;
+        }
+    }
+    if (any_calib) return;
     if (rms_ready_flag) {
-        energy_analyze(220.0f, 1.0f, 0.0f);
+        energy_analyze(DEFAULT_ANALYZE_VOLTAGE, DEFAULT_ANALYZE_K, DEFAULT_ANALYZE_B);
     }
 }
+
+// 计算一组数据的RMS作为底值
+float energy_calc_rms_base(const uint16_t *data, uint16_t length)
+{
+    float sum = 0.0f;
+    for (uint16_t i = 0; i < length; i++) {
+        sum += (float)data[i];
+    }
+    float mean = sum / length;
+
+    float sq_sum = 0.0f;
+    for (uint16_t i = 0; i < length; i++) {
+        float ac = (float)data[i] - mean;
+        sq_sum += ac * ac;
+    }
+    return sqrtf(sq_sum / length);
+}
+

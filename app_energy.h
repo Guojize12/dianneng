@@ -44,4 +44,6 @@ void energy_Handle(void);
 // void energy_calc(void);
 // void energy_alarm(void);
 
+// 计算一组数据的RMS作为底值
+float energy_calc_rms_base(const uint16_t *data, uint16_t length);
 #endif // __APP_ENERGY_H__
