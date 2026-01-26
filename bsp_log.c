@@ -1,6 +1,6 @@
 #include "bsp_app.h"
 #include "user_log.h"
-#include "app_energy.h"
+#ifdef USE_LOG_INPUT
 #include "string.h"
 #include "umd.h"
 
@@ -44,38 +44,23 @@ void factory_reset(void)
     reboot();
 }
 #endif
-#ifdef USE_LOG_INPUT
-static void energy_calib_cmd(void)
-{
-    energy_adc_calibrate_offset();
-    extern uint8_t g_energy_use_offset;
-    g_energy_use_offset = 1;
-    LOG("[CMD] energy_adc_calibrate_offset() called, RMS去底已开启.\n");
-}
-
-static void offset_reset_cmd(void)
-{
-    energy_adc_offset_reset();
-    LOG("[CMD] energy_adc_offset_reset() called.\n");
-}
 
 struct umd_name_def umd_nametab[] =
-{
-    {(void *)reboot, (uint8_t *)"reboot()"},
+    {
+        {(void *)reboot, (uint8_t *)"reboot()"},
 #ifdef UMD_USE_CLK
-    {(void *)sys_clk, (uint8_t *)"sys_clk()"},
+        {(void *)sys_clk, (uint8_t *)"sys_clk()"},
 #endif
-    {(void *)sys_time, (uint8_t *)"sys_time()"},
+        {(void *)sys_time, (uint8_t *)"sys_time()"},
 /************添加可见函数**************/
-    {(void *)energy_calib_cmd, (uint8_t *)"energy_calib()"},
-    {(void *)offset_reset_cmd, (uint8_t *)"offset_reset()"},
+
 #ifdef UMD_USE_DID
-    {(void *)did_set, (uint8_t *)"did_set(u32 id)"},
-    {(void *)did_get, (uint8_t *)"did_get()"},
+        {(void *)did_set, (uint8_t *)"did_set(u32 id)"},
+        {(void *)did_get, (uint8_t *)"did_get()"},
 #endif
 
-    /*****************END******************/
-    {(void *)user_list_max, (uint8_t *)"user_list_max"}, // 分割线
+        /*****************END******************/
+        {(void *)user_list_max, (uint8_t *)"user_list_max"}, // 分割线
 #ifdef UMD_USE_RST
         {(void *)factory_reset, (uint8_t *)"factory_reset()"},
 //    {(void*)ota_start,(uint8_t* )"ota_start()"},
@@ -88,7 +73,6 @@ struct umd_name_def umd_nametab[] =
 
         /*****************END******************/
 };
-#endif
 
 void umd_get_fnum(void)
 {
@@ -102,7 +86,6 @@ void umd_get_fnum(void)
         }
     }
 }
-
 
 static void reboot(void)
 {
@@ -121,7 +104,6 @@ static void user_list_max(void)
 {
 }
 
-
 #ifdef UMD_USE_CLK
 static void sys_clk(void)
 { 
@@ -129,5 +111,5 @@ static void sys_clk(void)
 }
 #endif
 
-
+#endif
 /*****END OF FILE****/

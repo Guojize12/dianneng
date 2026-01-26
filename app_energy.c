@@ -6,7 +6,11 @@
 
 #define ADC_CHANNELS   3
 #define POINTS_PER_CH  200
+
 #define DMA_BUF_SIZE   (ADC_CHANNELS * POINTS_PER_CH)
+
+/* ADC偏置（每通道） */
+static float g_adc_offset[ADC_CHANNELS] = {0};
 
 /* 一次性DMA采样缓冲区（600点） */
 static uint16_t energy_adc_buf[DMA_BUF_SIZE] = {0};
@@ -42,18 +46,40 @@ uint8_t energy_clip_detect(const uint16_t *data, uint16_t length)
 }
 
 /* 有效值计算（去直流分量） */
-float energy_rms_calc(const uint16_t *data, uint16_t length)
+
+// 支持偏置的RMS计算，offset为当前通道的ADC底值
+float energy_rms_calc_with_offset(const uint16_t *data, uint16_t length, float offset)
 {
     float sum = 0.0f;
-    for (uint16_t i = 0; i < length; i++) sum += data[i];
+    for (uint16_t i = 0; i < length; i++) sum += ((float)data[i] - offset);
     float mean = sum / length;
 
     float sq_sum = 0.0f;
     for (uint16_t i = 0; i < length; i++) {
-        float ac = (float)data[i] - mean;
+        float ac = ((float)data[i] - offset) - mean;
         sq_sum += ac * ac;
     }
     return sqrtf(sq_sum / length);
+}
+
+// 兼容原有接口，默认无偏置
+float energy_rms_calc(const uint16_t *data, uint16_t length)
+{
+    return energy_rms_calc_with_offset(data, length, 0.0f);
+}
+// 手动校准ADC偏置（无信号时调用）
+void energy_adc_calibrate_offset(void)
+{
+    // 采集一批数据，默认用rms_data中的最新一批
+    for (uint8_t ch = 0; ch < g_rms_channel; ch++) {
+        float sum = 0.0f;
+        for (uint16_t i = 0; i < g_rms_length; i++) {
+            sum += rms_data[i][ch];
+        }
+        g_adc_offset[ch] = sum / g_rms_length;
+        LOG("[Calib] CH%d offset=%.2f\r\n", ch, g_adc_offset[ch]);
+    }
+    LOG("[Calib] ADC offset calibration done.\r\n");
 }
 
 float energy_power_calc(float rms_current, float voltage, float k, float b)
@@ -108,21 +134,23 @@ void energy_analyze(float voltage, float k, float b)
 {
     if (!rms_ready_flag) return;
 
-    LOG("========== Energy Analyze ==========""\r\n");
+    LOG("========== Energy Analyze ==========\r\n");
     for (uint8_t ch = 0; ch < g_rms_channel; ch++) {
         uint16_t buf[POINTS_PER_CH];
         for (uint16_t i = 0; i < g_rms_length; i++) buf[i] = rms_data[i][ch];
 
         uint8_t clip = energy_clip_detect(buf, g_rms_length);
-        float rms = energy_rms_calc(buf, g_rms_length);
+        float rms = energy_rms_calc_with_offset(buf, g_rms_length, g_adc_offset[ch]);
         float power = energy_power_calc(rms, voltage, k, b);
 
         g_energy_result[ch].rms = rms;
         g_energy_result[ch].power = power;
         g_energy_result[ch].clip_flag = clip;
 
-        if (clip) LOG("[Warn] CH%d clip detected!\r\n", ch);
-        LOG("CH%d: RMS=%.3f Power=%.3f Clip=%d\r\n", ch, rms, power, clip);
+        if (clip)
+            LOG("[Warn] CH%d clip detected!\r\n", ch);
+        // ***整数方式输出：数据*1000，再用%d打印（外部用excel或脑子手动/1000）***
+        LOG("CH%d: RMS=%d Power=%d Clip=%d Offset=%.2f\r\n", ch, (int)(rms*1000), (int)(power*1000), (int)clip, g_adc_offset[ch]);
     }
     LOG("================================\r\n");
 
