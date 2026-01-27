@@ -6,6 +6,10 @@
 #include "tim.h"
 #include "dma.h"
 #include "bsp_adc.h"
+#include "bsp_timer.h"      // For Timer type, BSP_TIMER_Init, BSP_TIMER_Start, BSP_TIMER_Handle, TIMEOUT_2S
+#include "bsp_iwdg.h"       // For BSP_IWDG_Refresh
+#include "user_log.h"       // For LOG, USER_LOG_S_Get, USER_LOG_Input_Handle
+#include "app_version.h"    // For APP_VERSION_Print
 
 
 static Timer g_timer_iwdg = {0};
