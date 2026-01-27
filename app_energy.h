@@ -14,7 +14,7 @@ void energy_adc_restart(void);
 void energy_set_params(uint16_t length, uint8_t channel);
 
 // 多通道能量分析
-void energy_analyze(float voltage, float k, float b);
+void energy_analyze(void);
 
 // 有效值计算函数接口
 float energy_rms_calc(const uint16_t *data, uint16_t length);
@@ -46,4 +46,6 @@ void energy_Handle(void);
 
 // 计算一组数据的RMS作为底值
 float energy_calc_rms_base(const uint16_t *data, uint16_t length);
+// 设置指定通道RMS底值为0
+void energy_reset_rms_base_ch(uint8_t ch);
 #endif // __APP_ENERGY_H__

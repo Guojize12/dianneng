@@ -41,7 +41,7 @@ void APP_USER_Handle06(uint8_t addr, const uint8_t *buffer, uint8_t size)
 // 03功能码：上传能耗参数
 void APP_USER_Handle03(uint8_t addr, const uint8_t *buffer, uint8_t size)
 {
-    energy_analyze(g_voltage, g_k, g_b); // 支持下发电压，默认220V
+    energy_analyze(); // 计算所有通道功率
     uint8_t tx_buf[3 * (sizeof(float)*2 + 1)] = {0};
     uint8_t tx_num = 0;
     for(uint8_t ch=0; ch<3; ch++) {
