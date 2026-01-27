@@ -86,7 +86,8 @@ void energy_adc_calibrate_offset(void)
             sum += rms_data[i][ch];
         }
         g_adc_offset[ch] = sum / g_rms_length;
-        LOG("[Calib] CH%d offset=%.2f\r\n", ch, g_adc_offset[ch]);
+        // 整数缩放打印，避免%f不可用
+        LOG("[Calib] CH%d offset=%d\r\n", ch, (int)(g_adc_offset[ch] * 1000));
     }
     LOG("[Calib] ADC offset calibration done.\r\n");
 }
@@ -167,9 +168,17 @@ void energy_analyze(void)
         if (clip)
             LOG("[Warn] CH%d clip detected!\r\n", ch);
 
-        // 使用整数缩放打印，避免某些环境下%f不可用
-        LOG("CH%d: RMS=%d Power=%d Clip=%d Offset=%.2f Base=%.2f\r\n",
-            ch, (int)(rms*1000), (int)(power*1000), (int)clip, g_adc_offset[ch], param.rms_base);
+        // 使用整数缩放打印，避免环境下%f不可用
+        LOG("CH%d: RMS=%d Power=%d Clip=%d Offset=%d Base=%d Voltage=%d K=%d\r\n",
+            ch, 
+            (int)(rms * 1000),
+            (int)(power * 1000),
+            (int)clip,
+            (int)(g_adc_offset[ch] * 1000),
+            (int)(param.rms_base * 1000),
+            (int)(param.voltage * 1000),
+            (int)(param.k * 1000)
+        );
     }
     LOG("================================\r\n");
 
@@ -197,7 +206,8 @@ void energy_Handle(void)
             }
             // 校准底值，全局参数存到g_app_cfg.channel[ch].rms_base
             g_app_cfg.channel[ch].rms_base = energy_calc_rms_base(buf, g_rms_length);
-            LOG("[Calib] CH%d RMS base=%.2f\r\n", ch, g_app_cfg.channel[ch].rms_base);
+            // 整数缩放打印，避免%f不可用
+            LOG("[Calib] CH%d RMS base=%d\r\n", ch, (int)(g_app_cfg.channel[ch].rms_base * 1000));
             calib_rms_base_flag[ch] = 0;
             any_calib = 1;
         }
@@ -214,7 +224,7 @@ void energy_Handle(void)
     }
 }
 
-// 计算一组数据的RMS作为��值
+// 计算一组数据的RMS作为底值
 float energy_calc_rms_base(const uint16_t *data, uint16_t length)
 {
     float sum = 0.0f;
