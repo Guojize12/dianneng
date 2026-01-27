@@ -141,15 +141,21 @@ uint32_t APP_CONFIG_SlaveSum_Get(void)
 
 void APP_CONFIG_Init(void)
 {
-    // 启动时先读Flash参数
     APP_CONFIG_Load();
+    // 加这一段
+    for (int i = 0; i < APP_ENERGY_CHANNELS; i++) {
+        LOG("DEBUG: channel[%d] voltage=%d k=%d b=%d rms_base=%d\n",
+            i,
+            (int)(g_app_cfg.channel[i].voltage * 1000),
+            (int)(g_app_cfg.channel[i].k * 1000),
+            (int)(g_app_cfg.channel[i].b * 1000),
+            (int)(g_app_cfg.channel[i].rms_base * 1000));
+    }
 
-    // 检查合法性：无效则写入默认值到Flash
     if (!APP_CONFIG_ParamsValid(&g_app_cfg)) {
-        // 恢复默认
         memcpy(&g_app_cfg, &g_app_cfg_defaults, sizeof(g_app_cfg));
-        // 永久保存
         APP_CONFIG_Save();
+        LOG("DEBUG: Write default config to flash\n");
     }
 }
 
