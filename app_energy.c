@@ -1,7 +1,7 @@
 #include "adc.h"
 #include "app_energy.h"
 #include "user_log.h"
-#include "app_config.h"  // 新增头文件，使用g_app_cfg
+#include "app_config.h"  // 使用 g_app_cfg
 
 #define ADC_CHANNELS      3
 #define POINTS_PER_CH     1000
@@ -30,11 +30,6 @@ static uint8_t  g_rms_channel = ADC_CHANNELS;
 // 结果
 static energy_result_t g_energy_result[ADC_CHANNELS];
 
-// ------------------------参数访问方式修改---------------------------
-// 1. default_voltage、default_k、default_b、rms_base都改为访问g_app_cfg
-// 2. 临时参数如g_adc_offset仍保留本文件静态
-// 3. 代码内对底值和计算公式参数全部从g_app_cfg取值
-
 void energy_print_params(void) 
 {
     LOG("[ADC] params: length=%d, channel=%d\r\n", g_rms_length, g_rms_channel);
@@ -46,9 +41,6 @@ void energy_set_params(uint16_t length, uint8_t channel)
     if (channel > 0 && channel <= ADC_CHANNELS) g_rms_channel = channel;
     LOG("[Config] set: length=%d, channel=%d\r\n", g_rms_length, g_rms_channel);
 }
-
-// 可选：如需更严格可用比例法
-// #define CLIP_THRESHOLD  ((length) / 100)  // 1%
 
 uint8_t energy_clip_detect(const uint16_t *data, uint16_t length)
 {
@@ -104,7 +96,7 @@ float energy_power_calc(float rms_current, float voltage, float k, float b)
     return k * voltage * rms_current + b;
 }
 
-/* DMA采样完成回调：整批600点采满进入一次 */
+/* DMA采样完成回调：整批采满进入一次 */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
     if (hadc->Instance == ADC1)
@@ -163,7 +155,9 @@ void energy_analyze(void)
         float rms = energy_rms_calc_with_offset(buf, g_rms_length, g_adc_offset[ch]);
 
         energy_channel_param_t param;
+        // 修复：读取参数时传入正确的地址
         APP_CONFIG_EnergyParam_Get(&param, ch);
+
         float power = energy_power_calc(rms, param.voltage, param.k, param.b);
 
         g_energy_result[ch].rms = rms;
@@ -173,6 +167,7 @@ void energy_analyze(void)
         if (clip)
             LOG("[Warn] CH%d clip detected!\r\n", ch);
 
+        // 使用整数缩放打印，避免某些环境下%f不可用
         LOG("CH%d: RMS=%d Power=%d Clip=%d Offset=%.2f Base=%.2f\r\n",
             ch, (int)(rms*1000), (int)(power*1000), (int)clip, g_adc_offset[ch], param.rms_base);
     }
@@ -207,13 +202,19 @@ void energy_Handle(void)
             any_calib = 1;
         }
     }
-    if (any_calib) return;
+
+    // 若进行了底值校准，则持久化到Flash，避免重启丢失
+    if (any_calib) {
+        APP_CONFIG_Save();
+        return;
+    }
+
     if (rms_ready_flag) {
         energy_analyze();
     }
 }
 
-// 计算一组数据的RMS作为底值
+// 计算一组数据的RMS作为��值
 float energy_calc_rms_base(const uint16_t *data, uint16_t length)
 {
     float sum = 0.0f;
