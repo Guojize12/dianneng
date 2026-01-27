@@ -142,7 +142,12 @@ uint32_t APP_CONFIG_SlaveSum_Get(void)
 void APP_CONFIG_Init(void)
 {
     APP_CONFIG_Load();
-    // 加这一段
+    if (!APP_CONFIG_ParamsValid(&g_app_cfg)) {
+        memcpy(&g_app_cfg, &g_app_cfg_defaults, sizeof(g_app_cfg));
+        APP_CONFIG_Save();
+        LOG("DEBUG: Write default config to flash\n");
+    }
+    // 一定要在参数初始化和校验之后再打印！
     for (int i = 0; i < APP_ENERGY_CHANNELS; i++) {
         LOG("DEBUG: channel[%d] voltage=%d k=%d b=%d rms_base=%d\n",
             i,
@@ -150,12 +155,6 @@ void APP_CONFIG_Init(void)
             (int)(g_app_cfg.channel[i].k * 1000),
             (int)(g_app_cfg.channel[i].b * 1000),
             (int)(g_app_cfg.channel[i].rms_base * 1000));
-    }
-
-    if (!APP_CONFIG_ParamsValid(&g_app_cfg)) {
-        memcpy(&g_app_cfg, &g_app_cfg_defaults, sizeof(g_app_cfg));
-        APP_CONFIG_Save();
-        LOG("DEBUG: Write default config to flash\n");
     }
 }
 

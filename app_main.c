@@ -53,10 +53,10 @@ static void APP_MAIN_Callback_Iwdg(void)
  */
 void APP_MAIN_Init(void)
 {
+    USER_LOG_Init();
     BSP_TIMER_Init(&g_timer_iwdg, APP_MAIN_Callback_Iwdg, TIMEOUT_2S, TIMEOUT_2S); // 1s喂狗
     BSP_TIMER_Start(&g_timer_iwdg);
-    /* add app init*/
-    APP_CONFIG_Init();
+
     //  初始化DMA
     MX_DMA_Init();
     // 初始化ADC
@@ -70,8 +70,11 @@ void APP_MAIN_Init(void)
 //   BSP_TIMER_Init(&g_timer_pwm_print, APP_MAIN_Callback_PrintPwmFreq, 500, 500);
 //    BSP_TIMER_Start(&g_timer_pwm_print);
     APP_VERSION_Print(); 
+
+        /* add app init*/
+    APP_CONFIG_Init();
     
-     energy_adc_start();
+    energy_adc_start();
 }
 /**
  * @brief  主循环
